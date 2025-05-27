@@ -23,6 +23,7 @@ interface StoreBento {
   description?: string;
   price: number;
   image?: string;
+  filename?: string;
   available?: boolean;
 }
 
@@ -74,6 +75,35 @@ export default function HomePage() {
     }
   }
 
+  // 獲取圖片 URL
+  const fetchImageUrl = async (filename: string): Promise<string> => {
+    try {
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getItemImg`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: filename
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.statusCode === 200 && data.body) {
+          const imageData = JSON.parse(data.body);
+          return imageData.url || '';
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching image URL:', error);
+    }
+    
+    // 回傳預設圖片
+    return 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop';
+  };
+
   async function fetchStoreBentos(storeId: string) {
     try {
       setLoadingBentos(true);
@@ -92,7 +122,22 @@ export default function HomePage() {
         const data = await response.json();
         if (data.statusCode === 200 && data.body) {
           const bentoArray = JSON.parse(data.body);
-          setStoreBentos(bentoArray);
+          
+          // 為每個便當獲取真實圖片 URL
+          const bentosWithImages = await Promise.all(
+            bentoArray.map(async (bento: StoreBento) => {
+              if (bento.filename) {
+                const imageUrl = await fetchImageUrl(bento.filename);
+                return { ...bento, image: imageUrl };
+              }
+              return { 
+                ...bento, 
+                image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' 
+              };
+            })
+          );
+          
+          setStoreBentos(bentosWithImages);
           setSelectedStoreId(storeId);
         }
       }
