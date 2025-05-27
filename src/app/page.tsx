@@ -4,14 +4,104 @@ import { useEffect, useState } from "react";
 import { Button, NavbarItem } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { BentoCard } from "@/components/BentoCard";
-import { mockBentos } from "@/data/mockBentos";
+import { BentoCard, Bento } from "@/components/BentoCard";
+
+interface StoreData {
+  storeId: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  description?: string;
+}
+
+// TODO: Do not have both `StoreBento` and `Bento`.
+
+interface StoreBento {
+  id?: string;
+  itemId?: string;
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  available?: boolean;
+}
 
 export default function HomePage() {
   const [isLogin, setIsLogin] = useState(false);
   const [userType, setUserType] = useState("");
   const [userName, setUserName] = useState("");
+  const [storeData, setStoreData] = useState<StoreData[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [storeBentos, setStoreBentos] = useState<StoreBento[]>([]);
+  const [loadingBentos, setLoadingBentos] = useState(false);
   const router = useRouter();
+
+  const parseJwt = (token: string) => {
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+  };
+
+  // 轉換後端便當資料為 BentoCard 組件期望的格式
+  const convertToBento = (storeBento: StoreBento): Bento => {
+    return {
+      id: storeBento.id || storeBento.itemId || '',
+      name: storeBento.name,
+      description: storeBento.description || '',
+      price: storeBento.price || NaN,
+      image: storeBento.image || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
+      available: storeBento.available !== false
+    };
+  };
+
+  async function fetchStoreData() {
+    try {
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getStoreData`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.statusCode === 200 && data.body) {
+          const storeArray = JSON.parse(data.body);
+          setStoreData(storeArray);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching store data:', error);
+    }
+  }
+
+  async function fetchStoreBentos(storeId: string) {
+    try {
+      setLoadingBentos(true);
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getItemData`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeId: storeId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.statusCode === 200 && data.body) {
+          const bentoArray = JSON.parse(data.body);
+          setStoreBentos(bentoArray);
+          setSelectedStoreId(storeId);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching store bentos:', error);
+    } finally {
+      setLoadingBentos(false);
+    }
+  }
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -25,17 +115,48 @@ export default function HomePage() {
         console.log('Existing user storeName:', userObj['cognito:username']);
         setUserName(userObj['cognito:username']);
         setUserType(userObj.type);
-        return;
       } catch (e) {
         console.error('Error decoding exist IdToken:', e);
         localStorage.clear();
       }
     }
+    
+    if (localStorage.getItem("id_token")) {
+      fetchStoreData();
+    }
   }, []);
 
-  const handleFavoriteClick = (bentoId: string) => {
-    // 這裡之後會連接到 AWS 後端
-    console.log(`加入最愛: ${bentoId}`);
+  const handleFavoriteClick = async (bentoId: string) => {
+    if (!isLogin) {
+      alert("請先登入才能加入我的最愛！");
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/setLoveItem`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: parseJwt(localStorage.getItem("id_token")!).sub,
+          itemId: bentoId
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('加入最愛成功:', data);
+        // 可以在這裡添加成功提示
+      } else {
+        console.error('加入最愛失敗:', response.status);
+        alert('加入最愛失敗，請稍後再試。');
+      }
+    } catch (error) {
+      console.error('加入最愛時發生錯誤:', error);
+      alert('網路錯誤，請稍後再試。');
+    }
   };
 
   const handleAdminLogin = () => {
@@ -141,16 +262,65 @@ export default function HomePage() {
           <p className="text-default-500">新鮮製作，營養美味</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {mockBentos.map((bento) => (
-            <BentoCard
-              key={bento.id}
-              bento={bento}
-              isLoggedIn={isLogin}
-              onFavoriteClick={handleFavoriteClick}
-            />
-          ))}
-        </div>
+        {storeData.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold mb-4">店家資訊</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {storeData.map((store) => (
+                <div key={store.storeId} className="p-6 bg-content1 rounded-large border border-divider shadow-small hover:shadow-medium transition-shadow">
+                  <h4 
+                    className="font-bold text-lg mb-3 text-foreground cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => fetchStoreBentos(store.storeId)}
+                  >
+                    {store.name}
+                  </h4>
+                  {store.address && <p className="text-sm text-default-600 mb-2">📍 {store.address}</p>}
+                  {store.phone && <p className="text-sm text-default-600 mb-2">📞 {store.phone}</p>}
+                  {store.description && <p className="text-sm text-default-500 mt-3 italic">{store.description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 選中店家的便當列表 */}
+        {selectedStoreId && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold">
+                {storeData.find(store => store.storeId === selectedStoreId)?.name} 的便當
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setSelectedStoreId(null);
+                  setStoreBentos([]);
+                }}
+              >
+                關閉
+              </Button>
+            </div>
+            
+            {loadingBentos ? (
+              <div className="p-8 text-center">
+                <p>載入便當資料中...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {storeBentos.map((bento) => (
+                  <BentoCard
+                    key={bento.id || bento.itemId}
+                    bento={convertToBento(bento)}
+                    isLoggedIn={isLogin}
+                    onFavoriteClick={handleFavoriteClick}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
     </div>
   );
