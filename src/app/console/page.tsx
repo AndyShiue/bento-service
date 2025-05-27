@@ -14,7 +14,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Bento } from "@/components/BentoCard";
-import { mockBentos } from "@/data/mockBentos";
+
+const mockBentos: Bento[] = [];
 
 export default function ConsolePage() {
   const [bentos, setBentos] = useState<Bento[]>(mockBentos);

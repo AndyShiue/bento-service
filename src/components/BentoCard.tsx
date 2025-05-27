@@ -31,6 +31,8 @@ export function BentoCard({ bento, isLoggedIn, onFavoriteClick }: BentoCardProps
     onFavoriteClick(bento.id);
   };
 
+  // FIXME: Fetch real images from AWS S3.
+
   return (
     <Card className="w-full max-w-[300px] hover:shadow-lg transition-shadow">
       <CardHeader className="relative p-0">

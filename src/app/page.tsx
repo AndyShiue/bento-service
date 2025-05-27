@@ -121,6 +121,7 @@ export default function HomePage() {
       }
     }
     
+    // TODO: Fetch store data regardless of login status.
     if (localStorage.getItem("id_token")) {
       fetchStoreData();
     }
