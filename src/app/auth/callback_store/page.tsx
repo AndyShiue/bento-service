@@ -40,7 +40,7 @@ function InnerCallback() {
         const decodedToken = jwtDecode<TokenPayload>(resp.data.id_token);
         decodedToken.type = "store";
         localStorage.setItem('user', JSON.stringify(decodedToken));
-        router.replace('/');
+        router.replace('/console');
       } catch (err) {
         console.error(err);
       }
