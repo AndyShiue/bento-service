@@ -127,39 +127,6 @@ export default function HomePage() {
     }
   }, []);
 
-  const handleFavoriteClick = async (bentoId: string) => {
-    if (!isLogin) {
-      alert("請先登入才能加入我的最愛！");
-      return;
-    }
-
-    try {
-      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/setLoveItem`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: parseJwt(localStorage.getItem("id_token")!).sub,
-          itemId: bentoId
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('加入最愛成功:', data);
-        // 可以在這裡添加成功提示
-      } else {
-        console.error('加入最愛失敗:', response.status);
-        alert('加入最愛失敗，請稍後再試。');
-      }
-    } catch (error) {
-      console.error('加入最愛時發生錯誤:', error);
-      alert('網路錯誤，請稍後再試。');
-    }
-  };
-
   const handleAdminLogin = () => {
     console.log("店家登入")
     const domain = process.env.NEXT_PUBLIC_STORE_COGNITO_DOMAIN;
@@ -314,7 +281,6 @@ export default function HomePage() {
                     key={bento.id || bento.itemId}
                     bento={convertToBento(bento)}
                     isLoggedIn={isLogin}
-                    onFavoriteClick={handleFavoriteClick}
                   />
                 ))}
               </div>
