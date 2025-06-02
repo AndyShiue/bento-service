@@ -56,12 +56,19 @@ export default function HomePage() {
 
   async function fetchStoreData() {
     try {
+      const token = localStorage.getItem("id_token");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // 只有在有 token 時才添加 Authorization header
+      if (token) {
+        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+      }
+
       const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getStoreData`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       });
 
       if (response.ok) {
@@ -79,12 +86,18 @@ export default function HomePage() {
   // 獲取圖片 URL
   const fetchImageUrl = async (filename: string): Promise<string> => {
     try {
+      const token = localStorage.getItem("id_token");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // 只有在有 token 時才添加 Authorization header
+      if (token) {
+        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+      }
       const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getItemImg`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify({
           filename: filename
         }),
@@ -108,12 +121,18 @@ export default function HomePage() {
   async function fetchStoreBentos(storeId: string) {
     try {
       setLoadingBentos(true);
+      const token = localStorage.getItem("id_token");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // 只有在有 token 時才添加 Authorization header
+      if (token) {
+        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+      }
       const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getItemData`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify({
           storeId: storeId,
         }),
@@ -124,26 +143,42 @@ export default function HomePage() {
         if (data.statusCode === 200 && data.body) {
           const bentoArray = JSON.parse(data.body);
           
-          // 為每個便當獲取真實圖片 URL
-          const bentosWithImages = await Promise.all(
-            bentoArray.map(async (bento: StoreBento) => {
-              if (bento.filename) {
-                const imageUrl = await fetchImageUrl(bento.filename);
-                return { ...bento, image: imageUrl };
-              }
-              return { 
-                ...bento, 
-                image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' 
-              };
-            })
-          );
-          
-          setStoreBentos(bentosWithImages);
+          // 檢查是否有便當資料
+          if (bentoArray && Array.isArray(bentoArray) && bentoArray.length > 0) {
+            // 為每個便當獲取真實圖片 URL
+            const bentosWithImages = await Promise.all(
+              bentoArray.map(async (bento: StoreBento) => {
+                if (bento.filename) {
+                  const imageUrl = await fetchImageUrl(bento.filename);
+                  return { ...bento, image: imageUrl };
+                }
+                return { 
+                  ...bento, 
+                  image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' 
+                };
+              })
+            );
+            setStoreBentos(bentosWithImages);
+          } else {
+            // 沒有便當資料時設置為空數組
+            setStoreBentos([]);
+          }
+          setSelectedStoreId(storeId);
+        } else {
+          // API 回應格式不正確時設置為空數組
+          setStoreBentos([]);
           setSelectedStoreId(storeId);
         }
+      } else {
+        // API 調用失敗時設置為空數組
+        setStoreBentos([]);
+        setSelectedStoreId(storeId);
       }
     } catch (error) {
       console.error('Error fetching store bentos:', error);
+      // 發生錯誤時也要設置為空數組
+      setStoreBentos([]);
+      setSelectedStoreId(storeId);
     } finally {
       setLoadingBentos(false);
     }
@@ -167,10 +202,7 @@ export default function HomePage() {
       }
     }
     
-    // TODO: Fetch store data regardless of login status.
-    if (localStorage.getItem("id_token")) {
-      fetchStoreData();
-    }
+    fetchStoreData();
   }, []);
 
   const handleAdminLogin = () => {
@@ -319,6 +351,11 @@ export default function HomePage() {
             {loadingBentos ? (
               <div className="p-8 text-center">
                 <p>載入便當資料中...</p>
+              </div>
+            ) : storeBentos.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-default-500 text-lg">此店家目前沒有可用的便當商品</p>
+                <p className="text-default-400 text-sm mt-2">請稍後再查看或聯繫店家了解詳情</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
