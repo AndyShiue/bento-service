@@ -51,7 +51,7 @@ export function LexChat() {
       const errMsg = {
         id: Date.now() + 2,
         fromUser: false,
-        text: "發生錯誤，請稍後再試",
+        text: `發生錯誤，請稍後再試： ${err}`,
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {

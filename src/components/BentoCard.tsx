@@ -8,7 +8,6 @@ export interface Bento {
   id: string;
   name: string;
   description: string;
-  price: number;
   image: string;
   available: boolean;
 }
@@ -26,37 +25,41 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
   };
 
-  // 獲取最愛狀態
-  const fetchFavoriteStatus = async () => {
-    if (!isLoggedIn || !localStorage.getItem("id_token")) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getLoveItem`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: parseJwt(localStorage.getItem("id_token")!).sub
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.statusCode === 200 && data.body) {
-          const favoriteData = JSON.parse(data.body);
-          const isFavorite = Array.isArray(favoriteData) && 
-            favoriteData.some((item: { itemId: string }) => item.itemId === bento.id);
-          setIsFavorited(isFavorite);
-        }
+  useEffect(() => {
+    // 獲取最愛狀態
+    const fetchFavoriteStatus = async () => {
+      if (!isLoggedIn || !localStorage.getItem("id_token")) {
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching favorite status:', error);
-    }
-  };
+
+      try {
+        const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getLoveItem`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${parseJwt(localStorage.getItem("id_token")!).sub}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: parseJwt(localStorage.getItem("id_token")!).sub
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.statusCode === 200 && data.body) {
+            const favoriteData = JSON.parse(data.body);
+            const isFavorite = Array.isArray(favoriteData) && 
+              favoriteData.some((item: { itemId: string }) => item.itemId === bento.id);
+            setIsFavorited(isFavorite);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching favorite status:', error);
+      }
+    };
+
+    fetchFavoriteStatus();
+  }, [bento.id, isLoggedIn]);
 
   // 設定最愛狀態
   const setFavoriteStatus = async (newStatus: boolean) => {
@@ -93,10 +96,6 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchFavoriteStatus();
-  }, [bento.id, isLoggedIn]);
 
   const handleFavoriteClick = () => {
     if (!isLoggedIn) {
@@ -141,7 +140,6 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
         <h3 className="text-lg font-semibold mb-2">{bento.name}</h3>
         <p className="text-sm text-default-500 mb-3">{bento.description}</p>
         <div className="flex justify-between items-center">
-          <span className="text-lg font-bold text-primary">NT$ {bento.price}</span>
           <span
             className={`text-sm px-2 py-1 rounded-full ${
               bento.available

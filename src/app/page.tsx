@@ -22,7 +22,6 @@ interface StoreBento {
   itemId?: string;
   name: string;
   description?: string;
-  price: number;
   image?: string;
   filename?: string;
   available?: boolean;
@@ -48,40 +47,60 @@ export default function HomePage() {
       id: storeBento.id || storeBento.itemId || '',
       name: storeBento.name,
       description: storeBento.description || '',
-      price: storeBento.price || NaN,
       image: storeBento.image || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
       available: storeBento.available !== false
     };
   };
 
-  async function fetchStoreData() {
-    try {
-      const token = localStorage.getItem("id_token");
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      // 只有在有 token 時才添加 Authorization header
-      if (token) {
-        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        setIsLogin(true);
+        const userObj = JSON.parse(userStr);
+        console.log('Existing user type:', userObj.type);
+        console.log('Existing user sub:', userObj.sub);
+        console.log('Existing user email:', userObj.email);
+        console.log('Existing user storeName:', userObj['cognito:username']);
+        setUserName(userObj['cognito:username']);
+        setUserType(userObj.type);
+      } catch (e) {
+        console.error('Error decoding exist IdToken:', e);
+        localStorage.clear();
       }
-
-      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getStoreData`, {
-        method: 'GET',
-        headers: headers,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.statusCode === 200 && data.body) {
-          const storeArray = JSON.parse(data.body);
-          setStoreData(storeArray);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching store data:', error);
     }
-  }
+    
+    async function fetchStoreData() {
+      try {
+        const token = localStorage.getItem("id_token");
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        // 只有在有 token 時才添加 Authorization header
+        if (token) {
+          headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+        }
+
+        const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getStoreData`, {
+          method: 'GET',
+          headers: headers,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.statusCode === 200 && data.body) {
+            const storeArray = JSON.parse(data.body);
+            setStoreData(storeArray);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching store data:', error);
+      }
+    }
+    
+    fetchStoreData();
+  }, []);
 
   // 獲取圖片 URL
   const fetchImageUrl = async (filename: string): Promise<string> => {
@@ -183,27 +202,6 @@ export default function HomePage() {
       setLoadingBentos(false);
     }
   }
-
-  useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        setIsLogin(true);
-        const userObj = JSON.parse(userStr);
-        console.log('Existing user type:', userObj.type);
-        console.log('Existing user sub:', userObj.sub);
-        console.log('Existing user email:', userObj.email);
-        console.log('Existing user storeName:', userObj['cognito:username']);
-        setUserName(userObj['cognito:username']);
-        setUserType(userObj.type);
-      } catch (e) {
-        console.error('Error decoding exist IdToken:', e);
-        localStorage.clear();
-      }
-    }
-    
-    fetchStoreData();
-  }, []);
 
   const handleAdminLogin = () => {
     console.log("店家登入")

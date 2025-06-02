@@ -22,14 +22,13 @@ export default function ConsolePage() {
   const [newBento, setNewBento] = useState<Omit<Bento, "id">>({
     name: "",
     description: "",
-    price: 0,
     image: "",
     available: true,
   });
   const router = useRouter();
 
   const handleAddBento = () => {
-    if (!newBento.name || !newBento.description || newBento.price <= 0) {
+    if (!newBento.name || !newBento.description) {
       alert("請填寫完整的便當資訊");
       return;
     }
@@ -44,7 +43,6 @@ export default function ConsolePage() {
     setNewBento({
       name: "",
       description: "",
-      price: 0,
       image: "",
       available: true,
     });
@@ -102,13 +100,6 @@ export default function ConsolePage() {
                 onChange={(e) => setNewBento({ ...newBento, description: e.target.value })}
               />
               <Input
-                type="number"
-                label="價格 (NT$)"
-                placeholder="請輸入價格"
-                value={newBento.price.toString()}
-                onChange={(e) => setNewBento({ ...newBento, price: parseInt(e.target.value) || 0 })}
-              />
-              <Input
                 label="圖片網址"
                 placeholder="請輸入圖片網址"
                 value={newBento.image}
@@ -145,7 +136,6 @@ export default function ConsolePage() {
                   >
                     <div className="flex-1">
                       <h3 className="font-semibold">{bento.name}</h3>
-                      <p className="text-sm text-default-500">NT$ {bento.price}</p>
                     </div>
                     <Switch
                       isSelected={bento.available}
