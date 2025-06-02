@@ -5,6 +5,7 @@ import { Button, NavbarItem } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { BentoCard, Bento } from "@/components/BentoCard";
+import { LexChat } from "@/components/LexChat";
 
 interface StoreData {
   storeId: string;
@@ -333,6 +334,7 @@ export default function HomePage() {
           </div>
         )}
 
+      <LexChat/>
       </main>
     </div>
   );
