@@ -13,6 +13,13 @@ interface BentoCardProps {
 export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
   const [isFavorited, setIsFavorited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  console.log('BentoCard received bento:', {
+    id: bento.id,
+    name: bento.name,
+    quantity: bento.quantity
+  });
 
   const parseJwt = (token: string) => {
     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
@@ -107,11 +114,20 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
   return (
     <Card className="w-full max-w-[300px] hover:shadow-lg transition-shadow">
       <CardHeader className="relative p-0">
-        <img
-          src={bento.image}
-          alt={bento.name}
-          className="w-full h-48 object-cover rounded-t-lg"
-        />
+        {!imageError && (
+          <img
+            src={bento.image}
+            alt={bento.name}
+            className="w-full h-48 object-cover rounded-t-lg"
+            onError={() => setImageError(true)}
+            onLoad={() => setImageError(false)}
+          />
+        )}
+        {imageError && (
+          <div className="w-full h-48 bg-default-100 rounded-t-lg flex items-center justify-center">
+            <span className="text-default-400 text-sm">圖片無法載入</span>
+          </div>
+        )}
         <Button
           isIconOnly
           size="sm"
@@ -131,14 +147,23 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
         <h3 className="text-lg font-semibold mb-2">{bento.name}</h3>
         <p className="text-sm text-default-500 mb-3">{bento.description}</p>
         <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-1">
+            {/* 數量顯示 */}
+            {bento.quantity !== undefined && (
+              <span className="text-sm text-default-600">
+                數量: {bento.quantity}
+              </span>
+            )}
+          </div>
+          {/* 庫存狀態 */}
           <span
             className={`text-sm px-2 py-1 rounded-full ${
-              bento.available
-                ? "bg-success/20 text-success"
-                : "bg-danger/20 text-danger"
+              bento.quantity === 0 || bento.quantity === undefined
+                ? "bg-danger/20 text-danger"
+                : "bg-success/20 text-success"
             }`}
           >
-            {bento.available ? "有貨" : "售完"}
+            {bento.quantity === 0 || bento.quantity === undefined ? "缺貨" : "有貨"}
           </span>
         </div>
       </CardBody>

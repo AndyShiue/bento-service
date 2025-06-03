@@ -4,7 +4,7 @@ export interface Bento {
   name: string;
   description: string;
   image: string;
-  available: boolean;
+  quantity?: number;
 }
 
 // 後端 API 回傳的便當資料介面
@@ -15,7 +15,7 @@ export interface StoreBento {
   description?: string;
   image?: string;
   filename?: string;
-  available?: boolean;
+  quantity?: number;
 }
 
 // 店家資料介面

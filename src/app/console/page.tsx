@@ -9,10 +9,10 @@ import {
   Textarea,
   NavbarItem,
 } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { Bento, StoreBento } from "@/types/bento";
+import { Bento, StoreBento, StoreData } from "@/types/bento";
 
 interface StoreInfo {
   name: string;
@@ -23,16 +23,21 @@ interface StoreInfo {
 
 export default function ConsolePage() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo>({
-    name: "友善時光便當店",
-    address: "台北市大安區信義路四段123號",
-    phone: "02-2345-6789",
-    description: "提供新鮮美味的便當，注重健康與營養均衡",
+    name: "",
+    address: "",
+    phone: "",
+    description: "",
   });
   
   const [bentos, setBentos] = useState<Bento[]>([]);
   const [selectedBento, setSelectedBento] = useState<Bento | null>(null);
   const [editingBento, setEditingBento] = useState<Bento | null>(null);
   const [loadingBentos, setLoadingBentos] = useState(false);
+  const [uploadedImageData, setUploadedImageData] = useState<{
+    base64: string;
+    contentType: string;
+  } | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const router = useRouter();
 
   const parseJwt = (token: string) => {
@@ -46,12 +51,12 @@ export default function ConsolePage() {
       name: storeBento.name,
       description: storeBento.description || '',
       image: storeBento.image || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
-      available: storeBento.available !== false
+      quantity: storeBento.quantity
     };
   };
 
   // 獲取圖片 URL
-  const fetchImageUrl = async (filename: string): Promise<string> => {
+  const fetchImageUrl = useCallback(async (filename: string): Promise<string> => {
     try {
       const token = localStorage.getItem("id_token");
       const headers: Record<string, string> = {
@@ -82,10 +87,10 @@ export default function ConsolePage() {
     }
     
     return 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop';
-  };
+  }, []);
 
   // 獲取便當列表
-  const fetchBentos = async () => {
+  const fetchBentos = useCallback(async () => {
     try {
       setLoadingBentos(true);
       const token = localStorage.getItem("id_token");
@@ -137,11 +142,66 @@ export default function ConsolePage() {
     } finally {
       setLoadingBentos(false);
     }
-  };
+  }, [fetchImageUrl]);
+
+  // 獲取店家資訊
+  const fetchStoreInfo = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("id_token");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+      }
+
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/getStoreData`, {
+        method: 'GET',
+        headers: headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.statusCode === 200 && data.body) {
+          const storeArray = JSON.parse(data.body);
+          const currentStoreId = parseJwt(token!).sub;
+          
+          // 尋找當前店家的資訊
+          const currentStore = storeArray.find((store: StoreData) => store.storeId === currentStoreId);
+          
+          console.log('店家資訊:', {
+            storeId: currentStoreId,
+            找到的店家: currentStore,
+            所有店家: storeArray
+          });
+          
+          if (currentStore) {
+            console.log('店家詳細資訊:', {
+              name: currentStore.name,
+              description: currentStore.description,
+              address: currentStore.address,
+              phone: currentStore.phone
+            });
+            
+            setStoreInfo({
+              name: currentStore.name || "",
+              description: currentStore.description || "",
+              address: currentStore.address || "",
+              phone: currentStore.phone || "",
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching store info:', error);
+    }
+  }, []);
 
   useEffect(() => {
+    fetchStoreInfo();
     fetchBentos();
-  }, []);
+  }, [fetchStoreInfo, fetchBentos]);
 
   const handleStoreInfoSave = async () => {
     try {
@@ -172,7 +232,6 @@ export default function ConsolePage() {
 
       if (updateResponse.ok) {
         alert("店家資訊已更新！");
-        return;
       }
 
       // 如果 updateStoreData 失敗，嘗試 setStoreData
@@ -197,11 +256,58 @@ export default function ConsolePage() {
   const handleBentoSelect = (bento: Bento) => {
     setSelectedBento(bento);
     setEditingBento({ ...bento });
+    // 清除之前上傳的圖片資料
+    setUploadedImageData(null);
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && editingBento) {
+      // 檢查檔案類型
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        alert('請選擇有效的圖片格式 (JPG, PNG, GIF)');
+        return;
+      }
+
+      // 檢查檔案大小 (限制為 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('圖片檔案大小不能超過 5MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          // 移除 data URL 前綴，只保留 base64 資料
+          const base64Data = result.split(',')[1];
+          
+          // 儲存 base64 資料和內容類型
+          setUploadedImageData({
+            base64: base64Data,
+            contentType: file.type
+          });
+
+          // 更新預覽圖片
+          setEditingBento({ ...editingBento, image: result });
+          
+          // 重置圖片錯誤狀態
+          setImageErrors(prev => ({ ...prev, [`editing-${editingBento.id}`]: false }));
+        }
+      };
+      
+      reader.onerror = () => {
+        alert('圖片讀取失敗，請重試');
+      };
+      
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleBentoSave = async () => {
     if (!editingBento) return;
-    
+
     try {
       const token = localStorage.getItem("id_token");
       const headers: Record<string, string> = {
@@ -216,9 +322,9 @@ export default function ConsolePage() {
         storeId: parseJwt(token!).sub,
         itemId: editingBento.id,
         name: editingBento.name,
-        image_base64: "",
-        content_type: "image/jpeg",
-        // TODO: 處理圖片上傳
+        description: editingBento.description,
+        image_base64: uploadedImageData?.base64 || "",
+        content_type: uploadedImageData?.contentType || "image/jpeg",
       };
 
       const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/updateItemData`, {
@@ -228,17 +334,13 @@ export default function ConsolePage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        if (data.statusCode === 200) {
-          // 更新本地狀態
-          fetchBentos();
-          setSelectedBento(editingBento);
-          alert("便當資訊已更新！");
-        } else {
-          alert("更新便當失敗，請稍後再試。");
-        }
+        alert("便當資訊已更新！");
+        await fetchBentos();
+        setSelectedBento(editingBento);
+        // 清除上傳的圖片資料
+        setUploadedImageData(null);
       } else {
-        alert("更新便當失敗，請稍後再試。");
+        alert("更新失敗，請稍後再試。");
       }
     } catch (error) {
       console.error('Error updating bento:', error);
@@ -246,12 +348,46 @@ export default function ConsolePage() {
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && editingBento) {
-      // 模擬圖片上傳
-      const imageUrl = URL.createObjectURL(file);
-      setEditingBento({ ...editingBento, image: imageUrl });
+  const handleBentoDelete = async () => {
+    if (!selectedBento) return;
+
+    // 確認刪除
+    if (!confirm(`確定要刪除便當「${selectedBento.name}」嗎？此操作無法復原。`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("id_token");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${parseJwt(token).sub}`;
+      }
+
+      const deleteData = {
+        storeId: parseJwt(token!).sub,
+        itemId: selectedBento.id,
+      };
+
+      const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/deleteItemData`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(deleteData),
+      });
+
+      if (response.ok) {
+        alert("便當已刪除！");
+        await fetchBentos();
+        setSelectedBento(null);
+        setEditingBento(null);
+      } else {
+        alert("刪除失敗，請稍後再試。");
+      }
+    } catch (error) {
+      console.error('Error deleting bento:', error);
+      alert("網路錯誤，請稍後再試。");
     }
   };
 
@@ -272,9 +408,7 @@ export default function ConsolePage() {
         name: "新便當",
         description: "請編輯便當描述",
         image_base64: "",
-        content_type: "image/jpeg",
-        // TODO: Handle the image properly.
-        // 可以添加其他必要欄位
+        content_type: "image/jpeg"
       };
 
       const response = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/setItemData`, {
@@ -284,14 +418,9 @@ export default function ConsolePage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        if (data.statusCode === 200) {
-          alert("新便當已建立！");
-          // 重新獲取便當列表以顯示新增的便當
-          await fetchBentos();
-        } else {
-          alert("建立便當失敗，請稍後再試。");
-        }
+        alert("新便當已建立！");
+        // 重新獲取便當列表以顯示新增的便當
+        await fetchBentos();
       } else {
         alert("建立便當失敗，請稍後再試。");
       }
@@ -396,11 +525,20 @@ export default function ConsolePage() {
                           onClick={() => handleBentoSelect(bento)}
                         >
                           <div className="flex items-center space-x-3">
-                            <img
-                              src={bento.image}
-                              alt={bento.name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                            />
+                            {!imageErrors[bento.id] && (
+                              <img
+                                src={bento.image}
+                                alt={bento.name}
+                                className="w-16 h-16 object-cover rounded-lg"
+                                onError={() => setImageErrors(prev => ({ ...prev, [bento.id]: true }))}
+                                onLoad={() => setImageErrors(prev => ({ ...prev, [bento.id]: false }))}
+                              />
+                            )}
+                            {imageErrors[bento.id] && (
+                              <div className="w-16 h-16 bg-default-100 rounded-lg flex items-center justify-center">
+                                <span className="text-default-400 text-xs">無圖</span>
+                              </div>
+                            )}
                             <div className="flex-1">
                               <h3 className="font-semibold">{bento.name}</h3>
                               <p className="text-sm text-default-500 line-clamp-2">
@@ -408,12 +546,12 @@ export default function ConsolePage() {
                               </p>
                               <span
                                 className={`inline-block text-xs px-2 py-1 rounded-full mt-1 ${
-                                  bento.available
-                                    ? "bg-success/20 text-success"
-                                    : "bg-danger/20 text-danger"
+                                  bento.quantity === 0 || bento.quantity === undefined
+                                    ? "bg-danger/20 text-danger"
+                                    : "bg-success/20 text-success"
                                 }`}
                               >
-                                {bento.available ? "有貨" : "售完"}
+                                {bento.quantity === 0 || bento.quantity === undefined ? "缺貨" : `庫存: ${bento.quantity || 0}`}
                               </span>
                             </div>
                           </div>
@@ -451,11 +589,20 @@ export default function ConsolePage() {
                 <div className="space-y-4">
                   {/* 便當圖片 */}
                   <div className="text-center">
-                    <img
-                      src={editingBento.image}
-                      alt={editingBento.name}
-                      className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
-                    />
+                    {!imageErrors[`editing-${editingBento.id}`] && (
+                      <img
+                        src={editingBento.image}
+                        alt={editingBento.name}
+                        className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+                        onError={() => setImageErrors(prev => ({ ...prev, [`editing-${editingBento.id}`]: true }))}
+                        onLoad={() => setImageErrors(prev => ({ ...prev, [`editing-${editingBento.id}`]: false }))}
+                      />
+                    )}
+                    {imageErrors[`editing-${editingBento.id}`] && (
+                      <div className="w-32 h-32 bg-default-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                        <span className="text-default-400 text-sm">圖片無法載入</span>
+                      </div>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
@@ -495,6 +642,14 @@ export default function ConsolePage() {
                     className="w-full"
                   >
                     儲存變更
+                  </Button>
+
+                  <Button
+                    color="danger"
+                    onClick={handleBentoDelete}
+                    className="w-full"
+                  >
+                    刪除便當
                   </Button>
                 </div>
               ) : (

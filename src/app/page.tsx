@@ -8,8 +8,6 @@ import { BentoCard } from "@/components/BentoCard";
 import { LexChat } from "@/components/LexChat";
 import { Bento, StoreBento, StoreData } from "@/types/bento";
 
-// TODO: Do not have both `StoreBento` and `Bento`.
-
 export default function HomePage() {
   const [isLogin, setIsLogin] = useState(false);
   const [userType, setUserType] = useState("");
@@ -26,13 +24,21 @@ export default function HomePage() {
 
   // 轉換後端便當資料為 BentoCard 組件期望的格式
   const convertToBento = (storeBento: StoreBento): Bento => {
-    return {
+    console.log('Converting StoreBento to Bento:', {
+      input: storeBento,
+      quantity: storeBento.quantity
+    });
+    
+    const result = {
       id: storeBento.id || storeBento.itemId || '',
       name: storeBento.name,
       description: storeBento.description || '',
       image: storeBento.image || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
-      available: storeBento.available !== false
+      quantity: storeBento.quantity
     };
+    
+    console.log('Converted result:', result);
+    return result;
   };
 
   useEffect(() => {
@@ -144,12 +150,14 @@ export default function HomePage() {
         const data = await response.json();
         if (data.statusCode === 200 && data.body) {
           const bentoArray = JSON.parse(data.body);
+          console.log('Raw bento data from API:', bentoArray);
           
           // 檢查是否有便當資料
           if (bentoArray && Array.isArray(bentoArray) && bentoArray.length > 0) {
             // 為每個便當獲取真實圖片 URL
             const bentosWithImages = await Promise.all(
               bentoArray.map(async (bento: StoreBento) => {
+                console.log('Processing bento:', bento);
                 if (bento.filename) {
                   const imageUrl = await fetchImageUrl(bento.filename);
                   return { ...bento, image: imageUrl };
@@ -160,7 +168,11 @@ export default function HomePage() {
                 };
               })
             );
-            setStoreBentos(bentosWithImages);
+            
+            // 轉換為 Bento 格式
+            const convertedBentos = bentosWithImages.map(convertToBento);
+            console.log('Converted bentos:', convertedBentos);
+            setStoreBentos(convertedBentos);
           } else {
             // 沒有便當資料時設置為空數組
             setStoreBentos([]);
@@ -249,6 +261,16 @@ export default function HomePage() {
     router.push(logoutUrl);
   };
 
+  const leftContent = (
+    userType === "store" && (
+      <NavbarItem>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/console')}>
+          回到後台
+        </Button>
+      </NavbarItem>
+    )
+  );
+
   const centerContent = (
     <h1 className="text-xl font-bold">友善時光</h1>
   );
@@ -281,7 +303,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <Navbar centerContent={centerContent} rightContent={rightContent} />
+      <Navbar leftContent={leftContent} centerContent={centerContent} rightContent={rightContent} />
       
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
