@@ -4,28 +4,11 @@ import { useEffect, useState } from "react";
 import { Button, NavbarItem } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { BentoCard, Bento } from "@/components/BentoCard";
+import { BentoCard } from "@/components/BentoCard";
 import { LexChat } from "@/components/LexChat";
-
-interface StoreData {
-  storeId: string;
-  name: string;
-  address?: string;
-  phone?: string;
-  description?: string;
-}
+import { Bento, StoreBento, StoreData } from "@/types/bento";
 
 // TODO: Do not have both `StoreBento` and `Bento`.
-
-interface StoreBento {
-  id?: string;
-  itemId?: string;
-  name: string;
-  description?: string;
-  image?: string;
-  filename?: string;
-  available?: boolean;
-}
 
 export default function HomePage() {
   const [isLogin, setIsLogin] = useState(false);

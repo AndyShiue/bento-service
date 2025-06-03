@@ -3,14 +3,7 @@
 import { Card, CardBody, CardHeader, Button } from "@heroui/react";
 import { Heart } from "lucide-react";
 import { useState, useEffect } from "react";
-
-export interface Bento {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  available: boolean;
-}
+import { Bento } from "@/types/bento";
 
 interface BentoCardProps {
   bento: Bento;
@@ -110,8 +103,6 @@ export function BentoCard({ bento, isLoggedIn }: BentoCardProps) {
     const newStatus = !isFavorited;
     setFavoriteStatus(newStatus);
   };
-
-  // FIXME: Fetch real images from AWS S3.
 
   return (
     <Card className="w-full max-w-[300px] hover:shadow-lg transition-shadow">
