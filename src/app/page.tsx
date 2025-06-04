@@ -276,29 +276,33 @@ export default function HomePage() {
   );
 
   const rightContent = (
-    <>
-    {!isLogin?(
-      <>
-      <NavbarItem>
-        <Button variant="ghost" size="sm" onClick={handleAdminLogin}>
-          店家登入
-        </Button>
-      </NavbarItem>
-      <NavbarItem>
-        <Button variant="solid" color="primary" size="sm" onClick={handleUserLogin}>
-          使用者登入
-        </Button>
-      </NavbarItem>
-      </>
-    ):(
-      <>
-      <span style={{ whiteSpace: 'nowrap' }}>{`帳號：${userName}`}</span>
-      <Button variant="solid" color="primary" size="sm" onClick={handleUserLogout}>
-        登出
-      </Button>
-      </>
-    )}
-    </>
+    <div className="flex flex-col md:flex-row md:items-center gap-2">
+      {!isLogin ? (
+        <div className="flex flex-row gap-2">
+          <NavbarItem>
+            <Button variant="ghost" size="sm" onClick={handleAdminLogin}>
+              店家登入
+            </Button>
+          </NavbarItem>
+          <NavbarItem>
+            <Button variant="solid" color="primary" size="sm" onClick={handleUserLogin}>
+              使用者登入
+            </Button>
+          </NavbarItem>
+        </div>
+      ) : (
+        <>
+          <div className="text-sm text-default-600 whitespace-nowrap order-2 md:order-1">
+            帳號：{userName}
+          </div>
+          <div className="order-1 md:order-2">
+            <Button variant="solid" color="primary" size="sm" onClick={handleUserLogout}>
+              登出
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 
   return (

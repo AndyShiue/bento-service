@@ -425,19 +425,22 @@ export default function ConsolePage() {
   };
 
   const leftContent = (
-    <NavbarItem>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push("/")}
-      >
-        回到便當列表
-      </Button>
-    </NavbarItem>
+    <div className="flex items-center">
+      <NavbarItem>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push("/")}
+          className="text-xs sm:text-sm"
+        >
+          回到便當列表
+        </Button>
+      </NavbarItem>
+    </div>
   );
 
   const centerContent = (
-    <h1 className="text-xl font-bold">後台管理</h1>
+    <h1 className="text-lg sm:text-xl font-bold">後台管理</h1>
   );
 
   return (
