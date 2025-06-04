@@ -224,18 +224,12 @@ export default function ConsolePage() {
       };
 
       // 首先嘗試 updateStoreData
-      const updateResponse = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/updateStoreData`, {
+      await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/updateStoreData`, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify(storeData),
       });
-
-      if (updateResponse.ok) {
-        alert("店家資訊已更新！");
-      }
-
-      // 如果 updateStoreData 失敗，嘗試 setStoreData
-      console.log('updateStoreData failed, trying setStoreData...');
+      
       const setResponse = await fetch(`https://ybdrax2oo0.execute-api.ap-southeast-2.amazonaws.com/dev/setStoreData`, {
         method: 'POST',
         headers: headers,
